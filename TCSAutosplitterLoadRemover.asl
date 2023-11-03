@@ -129,7 +129,7 @@ start
 
 isLoading 
 {
-	return ((current.gameReboot == 10000) || ((old.transition == 0 && current.transition != 0) && (old.pause == 0)) 
+	return ((current.gameReboot == 10000) || ((current.transition == 1) && (old.pause == 0)) 
 	|| (current.canskip == 0) || (current.room == 325 && old.wipe == 1 && current.wipe == 1 && vars.inCantina)) && (current.alttab != 0);
 }
 
