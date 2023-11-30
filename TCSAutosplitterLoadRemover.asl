@@ -13,7 +13,7 @@ state("LEGOStarWarsSaga")
     int gogstream : 0x551bc0;
     float wipe : 0x5507a0;
     //This is our third variable that is a short that references address 0x5513d0,0xf0
-    short variable3 : 0x5513d0,0xf0;
+    short targetMap : 0x5513d0,0xf0;
     short jedibattlewave : 0x488ef4;
     //This is a lapcount that can land in the water
     float lapcount : 0x4824a0,0x28;
@@ -27,6 +27,7 @@ state("LEGOStarWarsSaga")
     int alttab: 0x00427610;
 	int room: 0x551bc0;
 	int roomPath: 0x5513d0;
+    int areaID: 0x00403784;
 }
 
 state("LEGOStarWarsSaga.exe.unpacked")
@@ -45,6 +46,7 @@ init{
     vars.mystery193 = new byte[43]{0x38,0x3c,0x78,0xc0,0x11,0x7e,0x7c,0xca,0x87,0xf,0xfc,0x64,0x33,0x54,0x7f,0xf4,0x38,0x87,0x32,0x1e,0x3e,0x3e,0xf0,0x79,0xe0,0xa3,0xe0,0xe3,0xc3,0xc7,0x87,0xe3,0x28,0x1e,0x4e,0x1e,0xff,0x18,0x5,0x55,0x5,0x47,0x0};
 	vars.levellookup = new byte[43]{0x80,0x80,0x0,0x1,0x28,0x0,0x81,0x14,0x10,0x40,0x0,0x91,0x84,0xa8,0x0,0xa,0x41,0x8,0x45,0x80,0x80,0x0,0x2,0x2,0x1,0x48,0x1,0x8,0x10,0x10,0x10,0x8,0x52,0x80,0xa0,0x40,0x0,0x22,0xaa,0xaa,0x1a,0x20,0x0};
     vars.inCantina = false;
+    vars.steam = true;
 }
 
 startup
@@ -70,6 +72,7 @@ startup
         vars.stopwatch.Reset();
     });
     timer.OnSplit += vars.splitActions;
+
 }
 
 split
@@ -94,7 +97,7 @@ split
         else if (settings["challenges"] && current.gogstream == 54 && current.kitcount == 10 && old.kitcount == 9) return true;
         else if ((settings["am"] || settings["prequels3"]) && current.gogstream == 138 && current.incutscene == 1 && old.incutscene == 0) return true;
         if (settings["kits"] && old.kitcount < current.kitcount) return true;
-        if (settings["rooms"] && (((old.roomPath != current.roomPath && ((vars.mystery193[current.variable3 >> 3] & (1 << (current.variable3 & 7))) != 0)) || (current.gogstream == 90 && old.jedibattlewave != current.jedibattlewave && current.jedibattlewave > 3) || (current.gogstream == 36 && current.lapcount == 3 && old.lapcount < 3) || (vars.lastroom == 325 && old.mapaddr != current.mapaddr && (settings["any"] || settings["prequels1"] || settings["am"] || settings["prequels3"] || settings["mkrush"]))) && current.gogstream != 325 || (current.gogstream == 137 && old.gogstream == 136) || (current.gogstream == 230 && old.gogstream == 233) || (current.gogstream == 234 && old.gogstream == 233) || (current.gogstream == 289 && old.gogstream == 288 && old.wipe == 0) || (current.gogstream == 295 && old.gogstream == 288) || (current.gogstream == 292 && old.gogstream == 291) || (current.gogstream == 138 && old.gogstream == 137))) return true;
+        if (settings["rooms"] && (((old.roomPath != current.roomPath && ((vars.mystery193[current.targetMap >> 3] & (1 << (current.targetMap & 7))) != 0)) || (current.gogstream == 90 && old.jedibattlewave != current.jedibattlewave && current.jedibattlewave > 3) || (current.gogstream == 36 && current.lapcount == 3 && old.lapcount < 3) || (vars.lastroom == 325 && old.mapaddr != current.mapaddr && (settings["any"] || settings["prequels1"] || settings["am"] || settings["prequels3"] || settings["mkrush"]))) && current.gogstream != 325 || (current.gogstream == 137 && old.gogstream == 136) || (current.gogstream == 230 && old.gogstream == 233) || (current.gogstream == 234 && old.gogstream == 233) || (current.gogstream == 289 && old.gogstream == 288 && old.wipe == 0) || (current.gogstream == 295 && old.gogstream == 288) || (current.gogstream == 292 && old.gogstream == 291) || (current.gogstream == 138 && old.gogstream == 137))) return true;
         if (settings["cantina"] && (current.gogstream == 325 && current.wipe > 0 && old.wipe == 0 && old.mapaddr == current.mapaddr)) return true;
     }
 	return false;
@@ -102,6 +105,10 @@ split
 
 start
 {
+    if (settings["splitdelay"] && vars.steam) {
+        vars.steam = false;
+        MessageBox.Show("Warning: Load removal only works on the GOG exe. Watch the Speedrun Setup Guide to learn more.","GOG Warning", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+    }
     if (!settings["GOG"]){
         return current.newgame == 1 && old.newgame == 0;
     }
@@ -129,7 +136,7 @@ start
 
 isLoading 
 {
-	return ((current.gameReboot == 10000) || ((current.transition == 1) && (old.pause == 0)) 
+	return ((current.gameReboot == 10000) || ((current.transition == 1) && (old.pause == 0) && (current.areaID != 66) && (current.targetMap != 0)) 
 	|| (current.canskip == 0) || (current.room == 325 && old.wipe == 1 && current.wipe == 1 && vars.inCantina)) && (current.alttab != 0);
 }
 
