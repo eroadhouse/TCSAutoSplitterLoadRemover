@@ -28,6 +28,7 @@ state("LEGOStarWarsSaga")
 	int room: 0x551bc0;
 	int roomPath: 0x5513d0;
     int areaID: 0x00403784;
+    float inCrawl: 0x47aab0;
 }
 
 state("LEGOStarWarsSaga.exe.unpacked")
@@ -136,7 +137,7 @@ start
 
 isLoading 
 {
-	return ((current.gameReboot == 10000) || ((current.transition == 1) && (old.pause == 0) && (current.areaID != 66) && (current.targetMap != 0)) 
+	return ((current.gameReboot == 10000) || ((current.transition == 1) && (old.pause == 0) && (current.areaID != 66) && (current.inCrawl == 0)) 
 	|| (current.canskip == 0) || (current.room == 325 && old.wipe == 1 && current.wipe == 1 && vars.inCantina)) && (current.alttab != 0);
 }
 
