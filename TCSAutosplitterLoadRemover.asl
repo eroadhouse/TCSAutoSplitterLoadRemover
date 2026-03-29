@@ -1,4 +1,5 @@
 //Written by P53, Zac, and eroadhouse
+//Version 0.2.0 | Room Splitting Fixed
 
 state("LEGOStarWarsSaga")
 {
@@ -12,10 +13,8 @@ state("LEGOStarWarsSaga")
     string12 stream : 0x4CBB90;
     int gogstream : 0x551bc0;
     float wipe : 0x5507a0;
-    //This is our third variable that is a short that references address 0x5513d0,0xf0
     short targetMap : 0x5513d0,0xf0;
     short jedibattlewave : 0x488ef4;
-    //This is a lapcount that can land in the water
     float lapcount : 0x4824a0,0x28;
     int mapaddr : 0x402c54;
     int kitcount : 0x00551264;
@@ -44,15 +43,16 @@ state("LEGOStarWarsSaga.exe.unpacked")
 init{
     vars.levelend = false;
     vars.lastroom = 0;
-    vars.mystery193 = new byte[43]{0x38,0x3c,0x78,0xc0,0x11,0x7e,0x7c,0xca,0x87,0xf,0xfc,0x64,0x33,0x54,0x7f,0xf4,0x38,0x87,0x32,0x1e,0x3e,0x3e,0xf0,0x79,0xe0,0xa3,0xe0,0xe3,0xc3,0xc7,0x87,0xe3,0x28,0x1e,0x4e,0x1e,0xff,0x18,0x5,0x55,0x5,0x47,0x0};
+    vars.forbiddenRooms = new byte[43]{0x38,0x3c,0x78,0xc0,0x11,0x7e,0x7c,0xca,0x87,0xf,0xfc,0x64,0x33,0x54,0x7f,0xf4,0x38,0x87,0x32,0x1e,0x3e,0x3e,0xf0,0x79,0xe0,0xa3,0xe0,0xe3,0xc3,0xc7,0x87,0xe3,0x28,0x1e,0x4e,0x1e,0xff,0x18,0x5,0x55,0x5,0x47,0x0};
 	vars.levellookup = new byte[43]{0x80,0x80,0x0,0x1,0x28,0x0,0x81,0x14,0x10,0x40,0x0,0x91,0x84,0xa8,0x0,0xa,0x41,0x8,0x45,0x80,0x80,0x0,0x2,0x2,0x1,0x48,0x1,0x8,0x10,0x10,0x10,0x8,0x52,0x80,0xa0,0x40,0x0,0x22,0xaa,0xaa,0x1a,0x20,0x0};
     vars.inCantina = false;
     vars.steam = true;
+    vars.roomPathChanged = false;
 }
 
 startup
 {
-    settings.Add("splitdelay", true, "Using the steam or steamless .exe.");
+    settings.Add("splitdelay", false, "Using the steam or steamless .exe.");
     settings.Add("any", true, "Category: Any%");
     settings.Add("fp", false, "Category: Free Play");
     settings.Add("challenges", false, "Category: All Challenges");
@@ -61,7 +61,7 @@ startup
     settings.Add("prequels3", false, "Category: Prequels (End on Vader)");
     settings.Add("mkrush", false, "Category: Minikit Rush");
     settings.Add("il", false, "Category: Story IL (Start on room change)");
-    settings.Add("GOG", false, "Using the GOG .exe.");
+    settings.Add("GOG", true, "Using the GOG .exe.");
     settings.Add("rooms", false, "Split on every room.");
     settings.Add("cantina", false, "Split on every room in the cantina.");
     settings.Add("kits", false, "Split on every kit in All Challenges.");
@@ -84,21 +84,76 @@ split
         if (settings["any"] && current.posb == 90 && current.posc == 180 && current.stream == "Escape_Outro") return true;
     }
     else {
+        //If invasion room timer is turned on, split only when reaching the end of invasion room 1
         if (settings["invasion"] && current.mapaddr != old.mapaddr) return true;
         else if(settings["invasion"]) return false;
+
+        //Don't split in coruscant at all
         if (current.gogstream == 110) return false;
+
+        //For categories that end on maul, stop splitting once maul is over
         if ((settings["fp"] || settings["challenges"] || settings["prequels1"]) && current.gogstream == 55 && old.gogstream == 55) return false;
+        //For categories that end on vader, stop splitting once vader is over
         else if ((settings["am"] || settings["prequels3"]) && current.gogstream == 139) return false;
+        
+        //If we don't hit any of the previous cases, split at the end of the screen wipe on any status screen
         else if(((vars.levellookup[current.gogstream >> 3] & (1 << (current.gogstream & 7))) != 0) && old.wipe != 0 && current.wipe == 0){
             return true;
         }
+
+        //For any%, split when we begin the bespin outro cutscene
         if (settings["any"] && current.gogstream == 250 && old.gogstream == 249) return true;
+        //For freeplay, split when we enter the maul status screen
         else if (settings["fp"] && current.gogstream == 55 && old.gogstream == 54) return true;
+        //For prequels (ending on maul route), split when we begin the maul outro cutscene
         else if (settings["prequels1"] && current.incutscene == 1 && old.incutscene == 0 && current.gogstream == 54) return true;
+        //For challenges, split when we collect the 10th kit in maul
         else if (settings["challenges"] && current.gogstream == 54 && current.kitcount == 10 && old.kitcount == 9) return true;
+        //For categories ending on vader, split when we begin the vader outro cutscene
         else if ((settings["am"] || settings["prequels3"]) && current.gogstream == 138 && current.incutscene == 1 && old.incutscene == 0) return true;
+        
+        //If kit splits are enabled for challenges, split when we collect a kit
         if (settings["kits"] && old.kitcount < current.kitcount) return true;
-        if (settings["rooms"] && (((old.roomPath != current.roomPath && ((vars.mystery193[current.targetMap >> 3] & (1 << (current.targetMap & 7))) != 0)) || (current.gogstream == 90 && old.jedibattlewave != current.jedibattlewave && current.jedibattlewave > 3) || (current.gogstream == 36 && current.lapcount == 3 && old.lapcount < 3) || (vars.lastroom == 325 && old.mapaddr != current.mapaddr && (settings["any"] || settings["prequels1"] || settings["am"] || settings["prequels3"] || settings["mkrush"]))) && current.gogstream != 325 || (current.gogstream == 137 && old.gogstream == 136) || (current.gogstream == 230 && old.gogstream == 233) || (current.gogstream == 234 && old.gogstream == 233) || (current.gogstream == 289 && old.gogstream == 288 && old.wipe == 0) || (current.gogstream == 295 && old.gogstream == 288) || (current.gogstream == 292 && old.gogstream == 291) || (current.gogstream == 138 && old.gogstream == 137))) return true;
+        
+        //If room splits are enabled
+        if (settings["rooms"]) {
+            if (current.gogstream != 325){
+                //Check if we have changed rooms
+                if (old.roomPath != current.roomPath || vars.roomPathChanged) {
+                    //Split if we aren't entering a forbidden cutscene (end cutscenes and specific midtros)
+                    if ((vars.forbiddenRooms[current.targetMap >> 3] & (1 << (current.targetMap & 7))) != 0) {
+                        vars.roomPathChanged = false;
+                    return true;
+                    }
+                }
+                //Split if we are in jedi battle and have advanced to the next wave of the level (ignoring pillars)
+                if (current.gogstream == 90 && old.jedibattlewave != current.jedibattlewave && current.jedibattlewave > 3) {
+                    return true;
+                }
+                //Split if we are in podrace and we advanced to lap 3
+                else if (current.gogstream == 36 && current.lapcount == 3 && old.lapcount < 3){
+                    return true;
+                }
+            }
+            //Split if we advance from Vader_A to Vader_B
+            if (current.gogstream == 137 && old.gogstream == 136) {
+                return true;
+            }
+            //Split if we advance from Vader_B to Vader_C (parkour section)
+            if (current.gogstream == 138 && old.gogstream == 137) {
+                return true;
+            }
+            //Split if we advance from room 1 of falcon flight to room 2, or if we advance from room 1 of falcon flight to the midtro
+            if ((current.gogstream == 230 && old.gogstream == 233) || (current.gogstream == 234 && old.gogstream == 233)) {
+                return true;
+            }
+            //Split if we advance from room 1 of ITDS to the midtro, or if we advance from the core to the ending
+            if ((current.gogstream == 295 && old.gogstream == 288) || (current.gogstream == 292 && old.gogstream == 291)) {
+                return true;
+            }
+            
+        }
+        //If cantina splits are enabled, split when the screen wipe begins if we are staying in the cantina
         if (settings["cantina"] && (current.gogstream == 325 && current.wipe > 0 && old.wipe == 0 && old.mapaddr == current.mapaddr)) return true;
     }
 	return false;
@@ -137,7 +192,8 @@ start
 
 isLoading 
 {
-	return ((current.gameReboot == 10000) || ((current.transition == 1) && (old.pause == 0) && (current.areaID != 66) && (current.inCrawl == 0)) 
+	//return true;
+    return ((current.gameReboot == 10000) || ((current.transition == 1) && (old.pause == 0) && (current.areaID != 66) && (current.inCrawl == 0)) 
 	|| (current.canskip == 0) || (current.room == 325 && old.wipe == 1 && current.wipe == 1 && vars.inCantina)) && (current.alttab != 0);
 }
 
@@ -149,6 +205,12 @@ reset
 }
 
 update{
+    if(current.roomPath != old.roomPath){
+        vars.roomPathChanged = true;
+    }
+    if (current.wipe == 0 && old.wipe > 0){
+        vars.roomPathChanged = false;
+    }
     if(!vars.levelend){
         vars.levelend = current.status > old.status;
     }
